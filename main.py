@@ -1,7 +1,6 @@
 import helper
-import logging
 import pyodbc
-from pyodbc import Error
+
 
 # read configurations.ini
 config = helper.read_config()
@@ -16,7 +15,7 @@ def create_connection(db_file):
         logger.info("Connecting to the database")
         conn = pyodbc.connect(r'Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ='+db_file+';\'')
         logger.info("Connection established")
-    except Error as e:
+    except Exception as e:
         logger.error("Error while connecting to the database: " + str(e))
     return conn
 
