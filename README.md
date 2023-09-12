@@ -20,11 +20,15 @@ Below, you can find the steps to execute the program:
    activate
    ```
 5. Navigate back to IPEDS-Data directory.
-6. Then, you can use requirements.txt file to install required dependencies via pip:
+6. Then, you can use packages.txt file to install required dependencies via pip:
    ```
-   python -m pip install -r requirements.txt 
+   python -m pip install -r packages.txt 
    ```
 8. Then, run the main.py within the directory in ipeds-venv environemnt:
    ```
    python main.py
    ```
+Note: If you add a new package or update an existing one use the below code to modify the packages.txt to keep it up to date.
+```
+python -m pip freeze > packages.txt
+```
