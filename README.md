@@ -32,3 +32,7 @@ Note: If you add a new package or update an existing one use the below code to m
 ```
 python -m pip freeze > packages.txt
 ```
+
+9. Create a Folder to store all the Access Databases you will be working with and give its path in generate_config.py file.
+
+10. Also create a empty CSVs folder in Access DBs folder created in step 9, to store all the generated csv's which consist of data cummulated from multiple years.
