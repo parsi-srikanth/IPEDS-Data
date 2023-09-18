@@ -15,7 +15,10 @@ def create_logger():
     log_file_name = config['Logger']['LogFileName']
     log_level = config['Logger']['LogLevel']
     log_file = log_file_path + log_file_name
-    logging.basicConfig(filename=log_file, level=log_level)
+    logging.basicConfig(filename=log_file,
+                        filemode='w',
+                        format='%(asctime)s, %(name)s %(levelname)s %(message)s',
+                        level=log_level)
     return logging
 
 # function to iterate through the folder and get the access db file path
