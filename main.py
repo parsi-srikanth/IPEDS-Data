@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sqlalchemy as sa
 import helper
 import pyodbc
@@ -37,7 +38,7 @@ def get_sqlalchemy_engine(db_file):
 def get_table_names_for_survey(conn, year):
     cursor = conn.cursor()
     logging.info(f"Getting table names for {year}")
-    cursor.execute(f"select TableName from tables{year[-2:]} where Survey = 'Institutional Characteristics'")
+    cursor.execute(f"select TableName from tables{year[-2:]} where release <> 'NA'")
     return [row[0] for row in cursor.fetchall()]
 
 def extract_and_save_data(db_file, year, output_folder):
@@ -58,7 +59,13 @@ def extract_and_save_data(db_file, year, output_folder):
                 df = pd.read_sql(f"SELECT * FROM {table_name}", engine)
                 logging.info(f"Created a pandas dataframe for {table_name}")
                 
-                table_name_without_year = ''.join([i for i in table_name if not i.isdigit()])
+                # remove more than 2 consecutive digits from the table name
+                table_name_without_year = re.sub('\d{2,}', '', table_name)
+                
+                # convert all the df column names to Upper case
+                if df.columns.str.isupper().all() == False:
+                    df.columns = df.columns.str.upper()
+
                 for varname in varnames:
                     cursor.execute(f"select codevalue, valuelabel from valuesets{year[-2:]} where tablename = '{table_name}' and varname = '{varname}'")
                     value_mapping = dict(cursor.fetchall())
@@ -66,10 +73,11 @@ def extract_and_save_data(db_file, year, output_folder):
                     df[varname+'_label'] = df[varname].astype(str).map(value_mapping)
                     logging.debug(f"Mapped the codevalue to valuelabel for {varname} in {table_name}")
 
+            # Write the df to CSV file
+            os.makedirs(output_folder, exist_ok=True)
             file_name = table_name_without_year + '.csv'
             csv_path = os.path.join(output_folder, file_name)
             logging.debug(f"Writing data to CSV file {file_name} for {year}")
-            # Write the df to CSV file
             df['Year'] = year
             df.to_csv(csv_path,mode='a')
             logging.info(f"Data written to CSV file {file_name} for {year}")
