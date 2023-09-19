@@ -1,81 +1,84 @@
-import csv
 import logging
 import os
+import sqlalchemy as sa
 import helper
 import pyodbc
+import pandas as pd
+from warnings import simplefilter 
+simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 # get connection to the database
 def connect_to_database(db_file):
     conn = None
     try:
-        logging.info("Connecting to the database " + db_file)
+        logging.info("Connecting to the database pyodbc ")
         conn = pyodbc.connect(r'Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ='+db_file+';\'')
         logging.info("Connection established")
     except Exception as e:
         logging.error("Error while connecting to the database: " + str(e))
     return conn
 
+def get_sqlalchemy_engine(db_file):
+    engine = None
+    try:
+        logging.info("Connecting to the database sqlalchemy ")
+        connection_string = (
+            r"DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};"
+            r"DBQ="+db_file+";"
+            r"ExtendedAnsiSQL=1;")
+        connection_url = sa.engine.URL.create("access+pyodbc",query={"odbc_connect": connection_string})
+        engine = sa.create_engine(connection_url)
+        logging.info("sqlalchemy engine established")
+    except Exception as e:
+        logging.error("Error while creating sqlalchemy engine: " + str(e))
+    return engine
+    
 
-def get_table_names_for_survey(conn, year, survey_name):
+def get_table_names_for_survey(conn, year):
     cursor = conn.cursor()
-    logging.info(f"Getting table names for {year} and {survey_name}")
-    cursor.execute(f"select TableName from tables{year[-2:]} where Survey = '{survey_name}'")
+    logging.info(f"Getting table names for {year}")
+    cursor.execute(f"select TableName from tables{year[-2:]} where Survey = 'Institutional Characteristics'")
     return [row[0] for row in cursor.fetchall()]
 
 def extract_and_save_data(db_file, year, output_folder):
     conn = connect_to_database(db_file)
-    if conn is None:
+    engine = get_sqlalchemy_engine(db_file)
+    if conn is None or engine is None:
         return
+    try:
+        table_names = get_table_names_for_survey(conn, year)
+        for table_name in table_names:
+            with conn.cursor() as cursor:
+                logging.debug(f"Getting varname from vartable for {table_name}")
+                cursor.execute(f"select varname from vartable{year[-2:]} where TableName = '{table_name}' and format = 'Disc'")
+                varnames = [row[0] for row in cursor.fetchall()]
+                logging.debug(f"Got varname from vartable for {table_name}")
 
-    table_names = get_table_names_for_survey(conn, year, 'Institutional Characteristics')
+                # Create a pandas df for the table along with the column names
+                df = pd.read_sql(f"SELECT * FROM {table_name}", engine)
+                logging.info(f"Created a pandas dataframe for {table_name}")
+                
+                table_name_without_year = ''.join([i for i in table_name if not i.isdigit()])
+                for varname in varnames:
+                    cursor.execute(f"select codevalue, valuelabel from valuesets{year[-2:]} where tablename = '{table_name}' and varname = '{varname}'")
+                    value_mapping = dict(cursor.fetchall())
+                    logging.debug(f"Created a dictionary of codevalue and valuelabel for {varname} in {table_name}")
+                    df[varname+'_label'] = df[varname].astype(str).map(value_mapping)
+                    logging.debug(f"Mapped the codevalue to valuelabel for {varname} in {table_name}")
 
-    for table_name in table_names:
-        cursor = conn.cursor()
-        logging.info(f"Getting varname from vartable for {table_name}")
-        cursor.execute(f"select varname from vartable{year[-2:]} where TableName = '{table_name}' and format = 'Disc'")
-        varnames = cursor.fetchall()
-        logging.info(f"Got varname from vartable for {table_name}")
-        cursor.close()
+            file_name = table_name_without_year + '.csv'
+            csv_path = os.path.join(output_folder, file_name)
+            logging.debug(f"Writing data to CSV file {file_name} for {year}")
+            # Write the df to CSV file
+            df['Year'] = year
+            df.to_csv(csv_path,mode='a')
+            logging.info(f"Data written to CSV file {file_name} for {year}")
 
-        # update the values in column vartitle to codelabel from table valuesets where tablename = table_name and varname = varname and codevalue = table_name.varname
-        cursor = conn.cursor()
-        for varname in varnames:
-            varname = varname[0]
-            vartitle = varname + '_label'
-            logging.info(f"Adding a new column {vartitle} for {table_name}")
-            logging.info(f"alter table {table_name} add column {vartitle} VARCHAR 255")
-            cursor.execute(f"alter table {table_name} add column {vartitle} VARCHAR 255")
-            logging.info(f"Added a new column {vartitle} for {table_name}")
-
-            logging.info(f"Updating the values in column {vartitle} for {table_name}")
-            logging.info(f"UPDATE {table_name} INNER JOIN valuesets{year[-2:]} ON CSTR(valuesets{year[-2:]}.[codevalue]) = CSTR({table_name}.{varname}) SET {table_name}.{vartitle} = valuesets{year[-2:]}.valueLabel where valuesets{year[-2:]}.tablename = '{table_name}' and valuesets{year[-2:]}.varname = '{varname}'")
-            cursor.execute(f"UPDATE {table_name} INNER JOIN valuesets{year[-2:]} ON CSTR(valuesets{year[-2:]}.[codevalue]) = CSTR({table_name}.{varname}) SET {table_name}.{vartitle} = valuesets{year[-2:]}.valueLabel where valuesets{year[-2:]}.tablename = '{table_name}' and valuesets{year[-2:]}.varname = '{varname}'")
-            logging.info(f"Updated the values in column {vartitle} for {table_name}")
-        cursor.close() 
-
-        logging.info(f"Extracting data from {table_name} for {year}")
-        cursor_inner = conn.cursor()
-        cursor_inner.execute(f'select * from {table_name}')
-        logging.info(f"Data extracted from {table_name} for {year}")
-
-        file_name = ''.join([i for i in table_name if not i.isdigit()]) + '.csv'
-        csv_path = os.path.join(output_folder, file_name)
-
-        logging.info(f"Writing data to CSV file {file_name} for {year}")
-
-        with open(csv_path, 'a', newline='') as f:
-            csv_writer = csv.writer(f)
-            for inner_row in cursor_inner.fetchall():
-                inner_row = list(inner_row)
-                inner_row.append(year)
-                csv_writer.writerow(inner_row)
-
-        logging.info(f"Data written to CSV file {file_name} for {year}")
-
-        cursor_inner.close()
-
-    conn.close()
-    logging.info("Connection closed")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+    finally:
+        conn.close()
+        logging.info("Connection closed")
 
 def main():
     # read configurations.ini
