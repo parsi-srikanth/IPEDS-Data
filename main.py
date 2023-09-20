@@ -7,6 +7,7 @@ import pyodbc
 import pandas as pd
 from warnings import simplefilter 
 simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
+simplefilter(action='ignore', category=FutureWarning)
 
 # get connection to the database
 def connect_to_database(db_file):
@@ -38,7 +39,7 @@ def get_sqlalchemy_engine(db_file):
 def get_table_names_for_survey(conn, year):
     cursor = conn.cursor()
     logging.info(f"Getting table names for {year}")
-    cursor.execute(f"select TableName from tables{year[-2:]} where release <> 'NA'")
+    cursor.execute(f"select TableName from tables{year[-2:]} where release <> 'NA' and survey = 'Institutional Characteristics'")
     return [row[0] for row in cursor.fetchall()]
 
 def extract_and_save_data(db_file, year, output_folder):
@@ -52,7 +53,7 @@ def extract_and_save_data(db_file, year, output_folder):
             with conn.cursor() as cursor:
                 logging.debug(f"Getting varname from vartable for {table_name}")
                 cursor.execute(f"select varname from vartable{year[-2:]} where TableName = '{table_name}' and format = 'Disc'")
-                varnames = [row[0] for row in cursor.fetchall()]
+                varnames = [row[0].upper() for row in cursor.fetchall()]
                 logging.debug(f"Got varname from vartable for {table_name}")
 
                 # Create a pandas df for the table along with the column names
@@ -70,7 +71,10 @@ def extract_and_save_data(db_file, year, output_folder):
                     cursor.execute(f"select codevalue, valuelabel from valuesets{year[-2:]} where tablename = '{table_name}' and varname = '{varname}'")
                     value_mapping = dict(cursor.fetchall())
                     logging.debug(f"Created a dictionary of codevalue and valuelabel for {varname} in {table_name}")
-                    df[varname+'_label'] = df[varname].astype(str).map(value_mapping)
+                    # get the column index of the varname
+                    varname_index = df.columns.get_loc(varname)
+                    # map the codevalue to valuelabel and insert the new column after the varname column
+                    df.insert(varname_index+1,varname+'_label', df[varname].astype(str).map(value_mapping))
                     logging.debug(f"Mapped the codevalue to valuelabel for {varname} in {table_name}")
 
             # Write the df to CSV file
@@ -78,8 +82,14 @@ def extract_and_save_data(db_file, year, output_folder):
             file_name = table_name_without_year + '.csv'
             csv_path = os.path.join(output_folder, file_name)
             logging.debug(f"Writing data to CSV file {file_name} for {year}")
-            df['Year'] = year
-            df.to_csv(csv_path,mode='a')
+            df.insert(0,'Year', year)
+            #df.to_csv(csv_path,mode='a')
+            if not os.path.exists(csv_path):
+                df.to_csv(csv_path, index=False, header=True)
+            else:
+                existing_df = pd.read_csv(csv_path, low_memory=False)
+                appended_df = pd.concat([existing_df, df])
+                appended_df.to_csv(csv_path, index=False, header=True)
             logging.info(f"Data written to CSV file {file_name} for {year}")
 
     except Exception as e:
