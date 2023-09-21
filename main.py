@@ -36,11 +36,11 @@ def get_sqlalchemy_engine(db_file):
     return engine
     
 
-def get_table_names_for_survey(conn, year):
+def get_table_names(conn, year):
     cursor = conn.cursor()
     logging.info(f"Getting table names for {year}")
-    cursor.execute(f"select TableName from tables{year[-2:]} where release <> 'NA' and survey = 'Institutional Characteristics'")
-    return [row[0] for row in cursor.fetchall()]
+    cursor.execute(f"select Survey,TableName from tables{year[-2:]} where release <> 'NA'")
+    return cursor.fetchall()
 
 def extract_and_save_data(db_file, year, output_folder):
     conn = connect_to_database(db_file)
@@ -48,8 +48,10 @@ def extract_and_save_data(db_file, year, output_folder):
     if conn is None or engine is None:
         return
     try:
-        table_names = get_table_names_for_survey(conn, year)
-        for table_name in table_names:
+        survey_table_names = get_table_names(conn, year)
+        for survey_table_name in survey_table_names:
+            survey = survey_table_name[0]
+            table_name = survey_table_name[1]
             with conn.cursor() as cursor:
                 logging.debug(f"Getting varname from vartable for {table_name}")
                 cursor.execute(f"select varname from vartable{year[-2:]} where TableName = '{table_name}' and format = 'Disc'")
@@ -78,16 +80,25 @@ def extract_and_save_data(db_file, year, output_folder):
                     logging.debug(f"Mapped the codevalue to valuelabel for {varname} in {table_name}")
 
             # Write the df to CSV file
-            os.makedirs(output_folder, exist_ok=True)
+            output_destination = output_folder.replace('survey', survey)
+            os.makedirs(output_destination, exist_ok=True)
             file_name = table_name_without_year + '.csv'
-            csv_path = os.path.join(output_folder, file_name)
+            csv_path = os.path.join(output_destination, file_name)
             logging.debug(f"Writing data to CSV file {file_name} for {year}")
             df.insert(0,'Year', year)
             #df.to_csv(csv_path,mode='a')
             if not os.path.exists(csv_path):
                 df.to_csv(csv_path, index=False, header=True)
             else:
-                existing_df = pd.read_csv(csv_path, low_memory=False)
+                #read whole csv file as chunks of 1000 rows at a time
+                existing_df = None
+                with pd.read_csv(csv_path, chunksize=1000) as reader:
+                    for chunk in reader:
+                        if existing_df is None:
+                            existing_df = chunk
+                        else:
+                            existing_df = pd.concat([existing_df, chunk])
+                #append the new df to existing df
                 appended_df = pd.concat([existing_df, df])
                 appended_df.to_csv(csv_path, index=False, header=True)
             logging.info(f"Data written to CSV file {file_name} for {year}")
