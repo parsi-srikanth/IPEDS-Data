@@ -8,7 +8,7 @@ config_file.add_section("Access DBs")
 # ADD SETTINGS TO SECTION
 config_file.set("Access DBs", "#", "Path to Access DBs Folder")
 config_file.set("Access DBs", "FolderPath", r"C:\Users\C00541311\Desktop\AccessDBs")
-config_file.set("Access DBs", "PathToSaveCSV", r"C:\Users\C00541311\Desktop\AccessDBs\CSVs\survey")
+config_file.set("Access DBs", "PathToSaveCSV", r"C:\Users\C00541311\Desktop\AccessDBs\CSVs\<survey-name>")
 # ADD NEW SECTION AND SETTINGS
 config_file["Logger"]={
     "#":"Path to the log file and log level information",
