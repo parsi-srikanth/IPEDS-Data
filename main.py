@@ -40,13 +40,28 @@ def get_sqlalchemy_engine(db_file):
 def get_table_names(conn, year):
     cursor = conn.cursor()
     logging.info(f"Getting table names for {year}")
-    cursor.execute(f"select Survey,TableName from tables{year[-2:]} where release <> 'NA' and survey = 'Completions'")
+    cursor.execute(f"select Survey,TableName from tables{year[-2:]} where release <> 'NA'")
     return cursor.fetchall()
+
+# def get_column_data_type(conn, year, columns = {}):
+#     cursor = conn.cursor()
+#     # create a df with the column names and data types from columns dictionary
+#     df = pd.DataFrame(columns=['Column Name', 'Data Type'])
+#     for key in columns:
+#         survey = key.split('_')[0].split('(')[0]
+#         table_name_without_year = key.split('_',1)[1]
+#         df = df.append(pd.DataFrame({'Column Name': columns[key], 'Data Type': [None]*len(columns[key])}), ignore_index=True)
+#     # get the data type of the column from the database
+#     for index, row in df.iterrows():
+#         cursor.execute(f"select varname, vartype from vartable{year[-2:]} where TableName = '{table_name_without_year}' and varname = '{row['Column Name']}'")
+#         varname, vartype = cursor.fetchone()
+#         df.loc[index, 'Data Type'] = vartype
+#     return df
+
 
 def get_table_columns(db_file, year, columns = {} ):
     conn = connect_to_database(db_file)
-    engine = get_sqlalchemy_engine(db_file)
-    if conn is None or engine is None:
+    if conn is None:
         return
 
     try:
@@ -124,7 +139,7 @@ def extract_and_save_data(db_file, year, output_folder, columnList = {}):
             logging.debug(f"Added Year column to the dataframe for {year}")
 
             # Write the df to CSV file
-            output_destination = output_folder.replace('<survey-name>', survey)
+            output_destination = output_folder.replace('<survey-name>', survey.split('(')[0])
             file_name = table_name_without_year + '.csv'
             csv_path = os.path.join(output_destination, file_name)
             logging.debug(f"Writing data to CSV file {file_name} for {year}")
@@ -147,7 +162,7 @@ def extract_and_save_data(db_file, year, output_folder, columnList = {}):
 
 def create_csv_files(output_folder, columnList = {}):
     for key in columnList:
-        survey = key.split('_')[0]
+        survey = key.split('_')[0].split('(')[0]
         table_name_without_year = key.split('_',1)[1]
         
         # Write the df to CSV file
