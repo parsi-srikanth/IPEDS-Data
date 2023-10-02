@@ -81,6 +81,7 @@ def get_table_columns(db_file, year, columns = {} ):
                 else:
                     columns[survey+'_'+table_name_without_year] = list([row[0].upper().replace(' ','') for row in cursor.fetchall()])
                     columns[survey+'_'+table_name_without_year].insert(0,'Year')
+                    columns[survey+'_'+table_name_without_year].insert(1,'UNITID')
                 cursor.execute(f"select varname from vartable{year[-2:]} where TableName = '{table_name}' and format = 'Disc'")
                 categorical_varnames = [row[0].upper().replace(' ','') for row in cursor.fetchall()]
                 for varname in categorical_varnames:
@@ -97,7 +98,7 @@ def get_table_columns(db_file, year, columns = {} ):
         conn.close()
         logging.info(f"Connection closed after getting table columns {year}")
 
-def extract_and_save_data(db_file, year, output_folder, columnList = {}):
+def extract_and_save_data(db_file, year, output_folder, tables_to_merge, columnList = {}):
     conn = connect_to_database(db_file)
     engine = get_sqlalchemy_engine(db_file)
     if conn is None or engine is None:
@@ -107,6 +108,8 @@ def extract_and_save_data(db_file, year, output_folder, columnList = {}):
         for survey_table_name in survey_table_names:
             survey = survey_table_name[0].replace(' ','')
             table_name = survey_table_name[1]
+            # remove more than 2 consecutive digits from the table name
+            table_name_without_year = re.sub('\d{2,}', '', table_name)            
             with conn.cursor() as cursor:
                 logging.debug(f"Getting varname from vartable for {table_name}")
                 cursor.execute(f"select varname from vartable{year[-2:]} where TableName = '{table_name}' and format = 'Disc'")
@@ -115,11 +118,26 @@ def extract_and_save_data(db_file, year, output_folder, columnList = {}):
 
                 # Create a pandas df for the table along with the column names
                 logging.debug(f"Reading data from {table_name}")
-                df = pd.read_sql(f"SELECT * FROM {table_name}", engine)
+                if year in tables_to_merge['year'].values:    
+                    if table_name in tables_to_merge['table_to_skip'].values:
+                        continue
+                    elif table_name in tables_to_merge['table_to_merge_into'].values:
+                        table_to_skip = tables_to_merge.loc[tables_to_merge['table_to_merge_into'] == table_name, 'table_to_skip'].iloc[0]
+                        df = pd.read_sql(f"SELECT* from {table_name} inner join {table_to_skip} on {table_name}.UNITID = {table_to_skip}.UNITID", engine)
+                        # drop table_to_skip.UNITID to UNITID
+                        df.rename(columns={table_to_skip+'.UNITID': 'UNITID'}, inplace=True)
+                        df.rename(columns={table_name+'.UNITID': 'UNITID'}, inplace=True)
+                        #remove duplicate columns
+                        df = df.loc[:,~df.columns.duplicated()]
+                        cursor.execute(f"select varname from vartable{year[-2:]} where TableName = '{table_to_skip}' and format = 'Disc'")
+                        new_varnames = [row[0].upper().replace(' ','') for row in cursor.fetchall()]
+                        varnames.extend(new_varnames)
+                    else:
+                        df = pd.read_sql(f"SELECT * FROM {table_name}", engine)
+                else:
+                    df = pd.read_sql(f"SELECT * FROM {table_name}", engine)
+
                 logging.debug(f"Created a pandas dataframe for {table_name}")
-                
-                # remove more than 2 consecutive digits from the table name
-                table_name_without_year = re.sub('\d{2,}', '', table_name)
                 
                 # convert all the df column names to Upper case
                 if df.columns.str.isupper().all() == False:
@@ -160,11 +178,24 @@ def extract_and_save_data(db_file, year, output_folder, columnList = {}):
         conn.close()
         logging.info(f"Connection closed after extracting data for {year}")
 
-def create_csv_files(output_folder, columnList = {}):
+def create_csv_files(output_folder, columnList = {}, tables_to_merge = pd.DataFrame()):
     for key in columnList:
         survey = key.split('_')[0].split('(')[0]
         table_name_without_year = key.split('_',1)[1]
+        ls = []
+        for x in tables_to_merge['table_to_skip'].values:
+            x = re.sub('\d{2,}', '', x)
+            ls.append(x)
         
+        if(table_name_without_year in ls):
+            # # get table name to merge into from the tables_to_merge df for the table name to skip
+            # table_name_to_merge_into = tables_to_merge.loc[tables_to_merge['table_to_skip'] == table_name_without_year, 'table_to_merge_into'].iloc[0]
+            # # add the columns from the table to skip to the table to merge into
+            # seen = set(columnList[survey+'_'+table_name_to_merge_into])
+            # list_of_new_columns = (x for x in columnList[key] if not (x in seen or seen.add(x)))
+            # columnList[survey+'_'+table_name_to_merge_into].extend(list_of_new_columns)
+            continue
+
         # Write the df to CSV file
         output_destination = output_folder.replace('<survey-name>', survey)
         os.makedirs(output_destination, exist_ok=True)
@@ -187,6 +218,11 @@ def main():
 
     logging.info("Iterating through the folder: " + accessdb_folderpath)
 
+    data = [['2008','EF2008F','EF2008D'], ['2008','EF2008DS','IC2008'], ['2010','CUSTOMCG2010','HD2010']]
+  
+
+    tables_to_merge = pd.DataFrame(data, columns=['year', 'table_to_skip', 'table_to_merge_into'])
+
     columns = {}
     for file in helper.iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logging.info("File found: " + file)
@@ -198,14 +234,14 @@ def main():
     logging.info("Dictionary of columns for survey_table created")
 
     #create csv files with the column names
-    create_csv_files(csv_folderpath, columns)
+    create_csv_files(csv_folderpath, columns, tables_to_merge)
     logging.info("All CSV files created")
 
     for file in helper.iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logging.info("File found: " + file)
         year = file.split('\\')[-1].split('.')[0][-6:-2]
-
-        extract_and_save_data(file, year, csv_folderpath, columnList = columns)
+        if year in ['2008', '2010']:
+            extract_and_save_data(file, year, csv_folderpath, tables_to_merge, columnList = columns)
     logging.info("Data extracted and saved to CSV files")  
             
 if __name__ == "__main__":
