@@ -16,6 +16,15 @@ config_file["Logger"]={
         "LogFileName" : "Debug.log",
         "LogLevel" : "INFO"
         }
+# Add section for IPEDS postgres db connection via sqlalchemy
+config_file["IPEDS DB"]={
+    "#":"IPEDS postgres db connection via sqlalchemy",
+        "host":"localhost",
+        "port":"5432",
+        "dbname":"postgres",
+        "user":"postgres",
+        "password":"qwerty123"
+        }
 
 # SAVE CONFIG FILE
 with open(r"configurations.ini", 'w') as configfileObj:

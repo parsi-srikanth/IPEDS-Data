@@ -36,28 +36,29 @@ def get_sqlalchemy_engine(db_file):
         logging.error("Error while creating sqlalchemy engine: " + str(e))
     return engine
     
+#create a sqlalchemy engine to connect to IPEDS postgres database
+def connect_to_ipeds_database():
+    engine = None
+    try:
+        logging.info("Connecting to the IPEDS postgres database")
+        config = helper.read_config()
+        ipeds_db = config['IPEDS DB']['dbname']
+        ipeds_user = config['IPEDS DB']['user']
+        ipeds_password = config['IPEDS DB']['password']
+        ipeds_host = config['IPEDS DB']['host']
+        ipeds_port = config['IPEDS DB']['port']
+        connection_string = f"postgresql://{ipeds_user}:{ipeds_password}@{ipeds_host}:{ipeds_port}/{ipeds_db}"
+        engine = sa.create_engine(connection_string)
+        logging.info("IPEDS postgres database connection established")
+    except Exception as e:
+        logging.error("Error while connecting to the IPEDS postgres database: " + str(e))
+    return engine    
 
 def get_table_names(conn, year):
     cursor = conn.cursor()
     logging.info(f"Getting table names for {year}")
     cursor.execute(f"select Survey,TableName from tables{year[-2:]} where release <> 'NA'")
     return cursor.fetchall()
-
-# def get_column_data_type(conn, year, columns = {}):
-#     cursor = conn.cursor()
-#     # create a df with the column names and data types from columns dictionary
-#     df = pd.DataFrame(columns=['Column Name', 'Data Type'])
-#     for key in columns:
-#         survey = key.split('_')[0].split('(')[0]
-#         table_name_without_year = key.split('_',1)[1]
-#         df = df.append(pd.DataFrame({'Column Name': columns[key], 'Data Type': [None]*len(columns[key])}), ignore_index=True)
-#     # get the data type of the column from the database
-#     for index, row in df.iterrows():
-#         cursor.execute(f"select varname, vartype from vartable{year[-2:]} where TableName = '{table_name_without_year}' and varname = '{row['Column Name']}'")
-#         varname, vartype = cursor.fetchone()
-#         df.loc[index, 'Data Type'] = vartype
-#     return df
-
 
 def get_table_columns(db_file, year, columns = {} ):
     conn = connect_to_database(db_file)
@@ -115,7 +116,7 @@ def extract_and_save_data(db_file, year, output_folder, tables_to_merge, columnL
                 cursor.execute(f"select varname from vartable{year[-2:]} where TableName = '{table_name}' and format = 'Disc'")
                 varnames = [row[0].upper().replace(' ','') for row in cursor.fetchall()]
                 logging.debug(f"Got varname from vartable for {table_name}")
-
+                table_to_skip = None
                 # Create a pandas df for the table along with the column names
                 logging.debug(f"Reading data from {table_name}")
                 if year in tables_to_merge['year'].values:    
@@ -144,7 +145,10 @@ def extract_and_save_data(db_file, year, output_folder, tables_to_merge, columnL
                     df.columns = df.columns.str.upper()
 
                 for varname in varnames:
-                    cursor.execute(f"select codevalue, valuelabel from valuesets{year[-2:]} where tablename = '{table_name}' and varname = '{varname}'")
+                    if table_to_skip is None:
+                        cursor.execute(f"select codevalue, valuelabel from valuesets{year[-2:]} where tablename = '{table_name}' and varname = '{varname}'")
+                    else:
+                        cursor.execute(f"select codevalue, valuelabel from valuesets{year[-2:]} where tablename in ('{table_name}','{table_to_skip}') and varname = '{varname}'")
                     value_mapping = dict(cursor.fetchall())
                     logging.debug(f"Created a dictionary of codevalue and valuelabel for {varname} in {table_name}")
                     # get the column index of the varname
@@ -183,17 +187,12 @@ def create_csv_files(output_folder, columnList = {}, tables_to_merge = pd.DataFr
         survey = key.split('_')[0].split('(')[0]
         table_name_without_year = key.split('_',1)[1]
         ls = []
+        # create a list of tables to skip creating csv files
         for x in tables_to_merge['table_to_skip'].values:
             x = re.sub('\d{2,}', '', x)
             ls.append(x)
         
         if(table_name_without_year in ls):
-            # # get table name to merge into from the tables_to_merge df for the table name to skip
-            # table_name_to_merge_into = tables_to_merge.loc[tables_to_merge['table_to_skip'] == table_name_without_year, 'table_to_merge_into'].iloc[0]
-            # # add the columns from the table to skip to the table to merge into
-            # seen = set(columnList[survey+'_'+table_name_to_merge_into])
-            # list_of_new_columns = (x for x in columnList[key] if not (x in seen or seen.add(x)))
-            # columnList[survey+'_'+table_name_to_merge_into].extend(list_of_new_columns)
             continue
 
         # Write the df to CSV file
@@ -209,6 +208,17 @@ def create_csv_files(output_folder, columnList = {}, tables_to_merge = pd.DataFr
                 writer.writerow(columnList[key])
         logging.info(f"Created CSV file {file_name}") 
 
+def create_tables_in_postgres(columns):
+    engine = connect_to_ipeds_database()
+    if engine is None:
+        return
+    for key in columns:
+        table_name = key.split('_',1)[1]
+        df = pd.DataFrame(columns=columns[key])
+        df.to_sql(table_name, engine, if_exists='replace', index=False)
+        logging.info(f"Created table {table_name}")
+
+
 def main():
     config = helper.read_config()
     logging = helper.create_logger()
@@ -218,9 +228,8 @@ def main():
 
     logging.info("Iterating through the folder: " + accessdb_folderpath)
 
+    #move this to config file
     data = [['2008','EF2008F','EF2008D'], ['2008','EF2008DS','IC2008'], ['2010','CUSTOMCG2010','HD2010']]
-  
-
     tables_to_merge = pd.DataFrame(data, columns=['year', 'table_to_skip', 'table_to_merge_into'])
 
     columns = {}
@@ -240,8 +249,7 @@ def main():
     for file in helper.iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logging.info("File found: " + file)
         year = file.split('\\')[-1].split('.')[0][-6:-2]
-        if year in ['2008', '2010']:
-            extract_and_save_data(file, year, csv_folderpath, tables_to_merge, columnList = columns)
+        extract_and_save_data(file, year, csv_folderpath, tables_to_merge, columnList = columns)
     logging.info("Data extracted and saved to CSV files")  
             
 if __name__ == "__main__":
