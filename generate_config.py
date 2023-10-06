@@ -21,9 +21,15 @@ config_file["IPEDS DB"]={
     "#":"IPEDS postgres db connection via sqlalchemy",
         "host":"localhost",
         "port":"5432",
-        "dbname":"postgres",
+        "dbname":"ipeds",
         "user":"postgres",
         "password":"qwerty123"
+        }
+
+config_file["Output"]={
+    "#":"How to output the data",
+        "CreateCsv":True,
+        "CreatePostgresTable":True,
         }
 
 # SAVE CONFIG FILE

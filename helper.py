@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 
-# function to read configurations.ini
+# function to read configurations.ini file
 def read_config():
     config = configparser.ConfigParser()
     config.read('configurations.ini')
