@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import sqlalchemy as sa
 import helper
@@ -51,8 +52,6 @@ def get_table_names(engine, year):
     finally:
         connection.close()
 
-
-
 def get_table_columns(db_file, year, columns={}):
     engine = connect_to_database(db_file)
     if engine is None:
@@ -95,58 +94,28 @@ def get_table_columns(db_file, year, columns={}):
         engine.dispose()
         logger.info(f"Connection closed after getting table columns {year}")
 
-def create_tables_in_postgres(columns):
-    engine = connect_to_ipeds_database()
-    if engine is None:
-        return
-    
-    for key in columns:
-        table_name = key.split('_', 1)[1]
-        df = pd.DataFrame(columns=columns[key])
-        df.to_sql(table_name, engine, if_exists='replace', index=False)
-        logger.info(f"Created table {table_name}")
-
-def get_columns(filepath, year, table_columns):
-    # Connect to the Access database
-    access_engine = connect_to_database(filepath)
-    access_conn = access_engine.connect()
-
-    # Reflect tables from the Access database
-    metadata = sa.MetaData()
-    metadata.reflect(bind=access_engine)
-
-    # Iterate through the reflected tables
-    for table_name, table in metadata.tables.items():
-        query = f"select Survey from tables{year[-2:]} where TableName = '{table_name}'"
-        Survey = access_conn.execute(sa.text(query))
-        Survey = Survey.first()
-        if Survey == None or Survey == 'NA':
-            continue
-        table_name_without_year = re.sub('\d{2,}', '', table_name).replace(' ', '')
-        # Track the columns for each table
-        if table_columns is not None and table_name_without_year not in table_columns:
-            table_columns[table_name_without_year] = set()
-
-        # Add the columns to the set for this year
-        table_columns[table_name_without_year].update([column.name for column in table.columns])
-
-    # Close the Access database connection
-    access_conn.close()
-    return table_columns
-
-def create_tables(table_columns):
+def create_tables(table_columns, tables_to_merge):
     postgres_engine = connect_to_ipeds_database()
     # Create PostgreSQL tables with the final structure
-    for table_name, columns in table_columns.items():
-        # Convert column names to Column objects
-        columns = [sa.Column(col_name, sa.String) for col_name in columns]
+    for key in table_columns:
+        survey = key.split('_')[0].split('(')[0]
+        table_name_without_year = key.split('_',1)[1].upper()
+        ls = []
+        # create a list of tables to skip creating csv files
+        for x in tables_to_merge['table_to_skip'].values:
+            x = re.sub('\d{2,}', '', x)
+            ls.append(x)
+        
+        if(table_name_without_year in ls):
+            continue
+
+        columns = [sa.Column(col_name, sa.Text) for col_name in table_columns[key]]
 
         # Create a new table in PostgreSQL with the final structure
         new_table = sa.Table(
-            table_name,
+            survey+'_'+table_name_without_year,
             sa.MetaData(),
             *columns,
-            sa.Column('year', sa.Integer),  # Add a 'year' column of type Integer
         )
 
         # Create the table in PostgreSQL (if it doesn't exist)
@@ -154,3 +123,29 @@ def create_tables(table_columns):
     
     # Close the PostgreSQL database connection
     postgres_engine.dispose()
+
+def load_data_into_postgres_from_csv(output_folder,table_columns):
+    try:
+        # Establish a connection to the PostgreSQL database
+        engine = connect_to_ipeds_database()
+        connection = engine.connect()
+        cursor = connection.connection.cursor()
+        for key in table_columns:
+            survey = key.split('_')[0].split('(')[0]
+            table_name_without_year = key.split('_',1)[1].upper()
+            
+            output_destination = output_folder.replace('<survey-name>', survey)
+            file_name = table_name_without_year + '.csv'
+            csv_path = os.path.join(output_destination, file_name)
+        
+            with open(csv_path) as csvFile:
+                next(csvFile)  # SKIP HEADERS
+                cursor.copy_from(csvFile, f'{survey}_{table_name_without_year}', sep=",")
+
+            print(f"Data from {csv_path} copied to {survey+'_'+table_name_without_year} successfully.")
+        connection.close()
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        if connection:
+            connection.close()

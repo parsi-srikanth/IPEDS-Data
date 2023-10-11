@@ -7,14 +7,15 @@ import sqlalchemy as sa
 
 logger = logging.getLogger(__name__)
 
-def extract_and_save_data(db_file, year, output_folder, tables_to_merge, columnList={}):
+def extract_and_save_data(db_file, year, create_csv, create_postgres_tables, output_folder, tables_to_merge, columnList={}):
     engine = db.connect_to_database(db_file)
     if engine is None:
         return
     try:
         survey_table_names = db.get_table_names(engine, year)
+        postgres_engine = db.connect_to_ipeds_database()
         for survey_table_name in survey_table_names:
-            survey = survey_table_name[0].replace(' ', '')
+            survey = survey_table_name[0].replace(' ', '').split('(')[0]
             table_name = survey_table_name[1]
             # remove more than 2 consecutive digits from the table name
             table_name_without_year = re.sub(r'\d{2,}', '', table_name)
@@ -73,7 +74,7 @@ def extract_and_save_data(db_file, year, output_folder, tables_to_merge, columnL
                 logger.debug(f"Added Year column to the dataframe for {year}")
 
                 # Write the df to CSV file
-                output_destination = output_folder.replace('<survey-name>', survey.split('(')[0])
+                output_destination = output_folder.replace('<survey-name>', survey)
                 file_name = table_name_without_year + '.csv'
                 csv_path = os.path.join(output_destination, file_name)
                 logger.debug(f"Writing data to CSV file {file_name} for {year}")
@@ -84,10 +85,15 @@ def extract_and_save_data(db_file, year, output_folder, tables_to_merge, columnL
                     for column in columnList[survey + '_' + table_name_without_year]:
                         if column not in df.columns:
                             new_columns.append(column)
-                df = pd.concat([df, pd.DataFrame(columns=new_columns)], axis=1)
-                df.to_csv(csv_path, index=False, header=False, mode='a',
-                          columns=columnList[survey + '_' + table_name_without_year])
-                logger.info(f"Data written to CSV file {file_name} for {year}")
+                if(create_csv):
+                    df = pd.concat([df, pd.DataFrame(columns=new_columns)], axis=1)
+                    df.to_csv(csv_path, index=False, header=False, mode='a',
+                            columns=columnList[survey + '_' + table_name_without_year])
+                    logger.info(f"Data written to CSV file {file_name} for {year}")
+                if(create_postgres_tables):
+                    # write the df data into postgres table
+                    df.to_sql(survey + '_' + table_name_without_year, postgres_engine, if_exists='append', index=False)
+                    logger.info(f"Data written to postgres table {survey + '_' + table_name_without_year} for {year}")
 
     except Exception as e:
         logger.error(f"An error occurred: {e}")

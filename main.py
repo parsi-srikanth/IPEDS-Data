@@ -1,5 +1,5 @@
 from data_processing import extract_and_save_data
-from database_operations import create_tables, get_columns, get_table_columns
+from database_operations import create_tables, get_table_columns
 from file_operations import create_csv_files
 import helper
 import pandas as pd
@@ -12,6 +12,8 @@ def main():
     logger = logging.getLogger(__name__)
     accessdb_folderpath = config['Access DBs']['folderpath']
     csv_folderpath = config['Access DBs']['PathToSaveCSV']
+    create_csv = True if config['Output']['CreateCsv'] == 'True' else False
+    create_postgres_tables = True if config['Output']['CreatePostgresTable'] == 'True' else False
 
     logger.info("Iterating through the folder: " + accessdb_folderpath)
 
@@ -23,30 +25,24 @@ def main():
     table_columns = {}
     for file in helper.iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logger.info("File found: " + file)
-        year = file.split('\\')[-1].split('.')[0][-6:-2]
-        
+        year = file.split('\\')[-1].split('.')[0][-6:-2]      
         # key = survey name_table name, value = list of columns
-        if(config['Output']['CreateCsv'].__eq__('True')):
-            columns = get_table_columns(file, year, columns)
-        if(config['Output']['CreatePostgresTable'].__eq__('True')):
-            table_columns = get_columns(file, year, table_columns)
-    
+        columns = get_table_columns(file, year, columns)
     logger.info("Dictionary of columns for survey_table created")
 
     #create csv files with the column names
-    if(config['Output']['CreateCsv'].__eq__('True')):
+    if(create_csv):
         create_csv_files(csv_folderpath, columns, tables_to_merge)
         logger.info("All CSV files created")
 
-    if(config['Output']['CreatePostgresTable'].__eq__('True')):
-        create_tables(table_columns)
-        logger.info("All tables created in postgres")
+    # if(create_postgres_tables):
+    #     create_tables(columns, tables_to_merge)
+    #     logger.info("All tables created in postgres")
 
     for file in helper.iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logger.info("File found: " + file)
         year = file.split('\\')[-1].split('.')[0][-6:-2]
-        if(config['Output']['CreateCsv'].__eq__('True')):
-            extract_and_save_data(file, year, csv_folderpath, tables_to_merge, columnList = columns)
+        extract_and_save_data(file, year, create_csv, create_postgres_tables, csv_folderpath, tables_to_merge, columnList = columns)
     logger.info("Data extracted and saved")  
             
 if __name__ == "__main__":
