@@ -85,8 +85,8 @@ def extract_and_save_data(db_file, year, create_csv, create_postgres_tables, out
                     for column in columnList[survey + '_' + table_name_without_year]:
                         if column not in df.columns:
                             new_columns.append(column)
+                df = pd.concat([df, pd.DataFrame(columns=new_columns)], axis=1)
                 if(create_csv):
-                    df = pd.concat([df, pd.DataFrame(columns=new_columns)], axis=1)
                     df.to_csv(csv_path, index=False, header=False, mode='a',
                             columns=columnList[survey + '_' + table_name_without_year])
                     logger.info(f"Data written to CSV file {file_name} for {year}")

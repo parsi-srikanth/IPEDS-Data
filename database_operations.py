@@ -61,7 +61,7 @@ def get_table_columns(db_file, year, columns={}):
         survey_table_names = get_table_names(engine, year)
 
         for survey_table_name in survey_table_names:
-            survey = survey_table_name[0].replace(' ', '')
+            survey = survey_table_name[0].replace(' ', '').split('(')[0]
             table_name = survey_table_name[1]
             table_name_without_year = re.sub('\d{2,}', '', table_name).replace(' ', '')
 

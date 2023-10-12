@@ -22,13 +22,18 @@ def main():
     tables_to_merge = pd.DataFrame(data, columns=['year', 'table_to_skip', 'table_to_merge_into'])
 
     columns = {}
-    table_columns = {}
+    # table_columns = {}
     for file in helper.iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logger.info("File found: " + file)
         year = file.split('\\')[-1].split('.')[0][-6:-2]      
         # key = survey name_table name, value = list of columns
         columns = get_table_columns(file, year, columns)
     logger.info("Dictionary of columns for survey_table created")
+
+    #add columns that are not in the vartable
+    columns['InstitutionalCharacteristics_DRVIC'].append('DVIC13')
+    columns['HumanResources_DRVHR'].append('ACT')
+    columns['InstitutionalCharacteristics_IC_PY'].append('CIPTITLE1')
 
     #create csv files with the column names
     if(create_csv):
