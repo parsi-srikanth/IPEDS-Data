@@ -21,14 +21,4 @@ def create_logger():
                         handlers=[logging.FileHandler(log_file, mode='w'),
                                   logging.StreamHandler(sys.stdout)])
     return logging
-
-# function to iterate through the folder and get the access db file path
-# iterate folder such that files are sorted by name 
-# so that the files are processed in the same order every time
-def iterate_folder(folderpath, file_extension=".accdb"):
-    for root, dirs, files in os.walk(folderpath):
-        files.sort(reverse=True)
-        for file in files:
-            if file.endswith(file_extension):
-                yield os.path.join(root, file)
     

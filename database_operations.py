@@ -100,13 +100,9 @@ def create_tables(table_columns, tables_to_merge):
     for key in table_columns:
         survey = key.split('_')[0].split('(')[0]
         table_name_without_year = key.split('_',1)[1].upper()
-        ls = []
-        # create a list of tables to skip creating csv files
-        for x in tables_to_merge['table_to_skip'].values:
-            x = re.sub('\d{2,}', '', x)
-            ls.append(x)
-        
-        if(table_name_without_year in ls):
+        skip_tables = tables_to_merge['table_to_skip'].str.replace(r'\d{2,}', '', regex=True)
+
+        if table_name_without_year in skip_tables.values:
             continue
 
         columns = [sa.Column(col_name, sa.Text) for col_name in table_columns[key]]
@@ -124,28 +120,28 @@ def create_tables(table_columns, tables_to_merge):
     # Close the PostgreSQL database connection
     postgres_engine.dispose()
 
-def load_data_into_postgres_from_csv(output_folder,table_columns):
-    try:
-        # Establish a connection to the PostgreSQL database
-        engine = connect_to_ipeds_database()
-        connection = engine.connect()
-        cursor = connection.connection.cursor()
-        for key in table_columns:
-            survey = key.split('_')[0].split('(')[0]
-            table_name_without_year = key.split('_',1)[1].upper()
+# def load_data_into_postgres_from_csv(output_folder,table_columns):
+#     try:
+#         # Establish a connection to the PostgreSQL database
+#         engine = connect_to_ipeds_database()
+#         connection = engine.connect()
+#         cursor = connection.connection.cursor()
+#         for key in table_columns:
+#             survey = key.split('_')[0].split('(')[0]
+#             table_name_without_year = key.split('_',1)[1].upper()
             
-            output_destination = output_folder.replace('<survey-name>', survey)
-            file_name = table_name_without_year + '.csv'
-            csv_path = os.path.join(output_destination, file_name)
+#             output_destination = output_folder.replace('<survey-name>', survey)
+#             file_name = table_name_without_year + '.csv'
+#             csv_path = os.path.join(output_destination, file_name)
         
-            with open(csv_path) as csvFile:
-                next(csvFile)  # SKIP HEADERS
-                cursor.copy_from(csvFile, f'{survey}_{table_name_without_year}', sep=",")
+#             with open(csv_path) as csvFile:
+#                 next(csvFile)  # SKIP HEADERS
+#                 cursor.copy_from(csvFile, f'{survey}_{table_name_without_year}', sep=",")
 
-            print(f"Data from {csv_path} copied to {survey+'_'+table_name_without_year} successfully.")
-        connection.close()
-    except Exception as e:
-        print(f"Error: {e}")
-    finally:
-        if connection:
-            connection.close()
+#             print(f"Data from {csv_path} copied to {survey+'_'+table_name_without_year} successfully.")
+#         connection.close()
+#     except Exception as e:
+#         print(f"Error: {e}")
+#     finally:
+#         if connection:
+#             connection.close()
