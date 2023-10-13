@@ -34,15 +34,12 @@ def main():
     columns['InstitutionalCharacteristics_DRVIC'].append('DVIC13')
     columns['HumanResources_DRVHR'].append('ACT')
     columns['InstitutionalCharacteristics_IC_PY'].append('CIPTITLE1')
+    columns['HumanResources_SAL_FACULTY'].append('I')
 
     #create csv files with the column names
     if(create_csv):
         create_csv_files(csv_folderpath, columns, tables_to_merge)
         logger.info("All CSV files created")
-
-    # if(create_postgres_tables):
-    #     create_tables(columns, tables_to_merge)
-    #     logger.info("All tables created in postgres")
 
     for file in iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logger.info("File found: " + file)

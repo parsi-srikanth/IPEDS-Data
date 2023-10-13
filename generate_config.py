@@ -26,8 +26,8 @@ config_file.set("IPEDS DB", "user", "postgres")
 config_file.set("IPEDS DB", "password", "qwerty123")
 
 config_file.add_section("Output")
-config_file.set("Output", "CreateCsv", "True")  # Note: 'True' as a string
-config_file.set("Output", "CreatePostgresTable", "True")  # Note: 'True' as a string
+config_file.set("Output", "CreateCsv", "True")
+config_file.set("Output", "CreatePostgresTable", "True")
 
 # SAVE CONFIG FILE
 with open("configurations.ini", 'w') as configfileObj:
