@@ -16,7 +16,7 @@ def extract_and_save_data(db_file, year, create_csv, create_postgres_tables, out
         postgres_engine = db.connect_to_ipeds_database()
         for survey_table_name in survey_table_names:
             survey = survey_table_name[0].replace(' ', '').split('(')[0]
-            table_name = survey_table_name[1]
+            table_name = survey_table_name[1].upper()
             # remove more than 2 consecutive digits from the table name
             table_name_without_year = re.sub(r'\d{2,}', '', table_name)
             with engine.connect() as connection:

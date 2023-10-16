@@ -36,3 +36,7 @@ python -m pip freeze > packages.txt
 9. Create a Folder to store all the Access Databases you will be working with and give its path in generate_config.py file.
 
 10. Also create a empty CSVs folder in Access DBs folder created in step 9, to store all the generated csv's which consist of data cummulated from multiple years.
+
+11. Create a postgresql DB and update details in the generate_config.py file and run it.
+
+12. Use code from get_counts.sql file to create a function in the postgresql database created in the above step.

@@ -93,3 +93,26 @@ def get_table_columns(db_file, year, columns={}):
     finally:
         engine.dispose()
         logger.info(f"Connection closed after getting table columns {year}")
+
+def get_counts(columns={}):
+    engine = connect_to_ipeds_database()
+    if engine is None:
+        return {}
+
+    try:
+        connection = engine.connect()
+        final_df = pd.DataFrame()
+        for survey_table_name in columns.keys():
+            query = f"select c.yr, c.col, c.tc as total_count, c.count_not_nulls from public.get_count( 'public','survey_table_name' ) as c(yr,tc,col,count_not_nulls) order by c.col,c.yr desc"
+            result = connection.execute(sa.text(query.replace('survey_table_name', survey_table_name)))
+            df = pd.DataFrame(result.fetchall(), columns=['year', 'column_name', 'total_count', 'count_not_nulls'])
+            df['survey_table_name'] = survey_table_name
+            logger.info(f"Count data for {survey_table_name} fetched from the IPEDS postgres database")
+            final_df = pd.concat([final_df, df], axis=0)
+            logger.info(f"Count data for {survey_table_name} added to the dataframe")
+        return final_df
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+    finally:
+        engine.dispose()
+        logger.info(f"Connection closed after getting table column counts")

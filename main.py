@@ -1,5 +1,5 @@
 from data_processing import extract_and_save_data
-from database_operations import get_table_columns
+from database_operations import get_counts, get_table_columns
 from file_operations import create_csv_files, iterate_folder
 import helper
 import pandas as pd
@@ -22,7 +22,6 @@ def main():
     tables_to_merge = pd.DataFrame(data, columns=['year', 'table_to_skip', 'table_to_merge_into'])
 
     columns = {}
-    # table_columns = {}
     for file in iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logger.info("File found: " + file)
         year = file.split('\\')[-1].split('.')[0][-6:-2]      
@@ -46,6 +45,8 @@ def main():
         year = file.split('\\')[-1].split('.')[0][-6:-2]
         extract_and_save_data(file, year, create_csv, create_postgres_tables, csv_folderpath, tables_to_merge, columnList = columns)
     logger.info("Data extracted and saved")  
-            
+
+    counts = get_counts(columns)
+    counts.to_csv('counts.csv', index=False)
 if __name__ == "__main__":
     main()
