@@ -34,6 +34,7 @@ def main():
     columns['HumanResources_DRVHR'].append('ACT')
     columns['InstitutionalCharacteristics_IC_PY'].append('CIPTITLE1')
     columns['HumanResources_SAL_FACULTY'].append('I')
+    columns['HumanResources_SAL_FACULTY'].append('DROP')
 
     #create csv files with the column names
     if(create_csv):
@@ -48,5 +49,6 @@ def main():
 
     counts = get_counts(columns)
     counts.to_csv('counts.csv', index=False)
+    logger.info("Counts saved to CSV file")
 if __name__ == "__main__":
     main()

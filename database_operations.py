@@ -63,7 +63,7 @@ def get_table_columns(db_file, year, columns={}):
         for survey_table_name in survey_table_names:
             survey = survey_table_name[0].replace(' ', '').split('(')[0]
             table_name = survey_table_name[1]
-            table_name_without_year = re.sub('\d{2,}', '', table_name).replace(' ', '')
+            table_name_without_year = re.sub('\d{2,}', '', table_name).replace(' ', '').upper()
 
             with engine.connect() as connection:
                 query = f"select varname from vartable{year[-2:]} where TableName = '{table_name}'"
