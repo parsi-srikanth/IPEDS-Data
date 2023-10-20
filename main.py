@@ -1,4 +1,4 @@
-from data_processing import extract_and_save_data
+from data_processing import extract_and_save_data, extract_meta_data
 from database_operations import get_counts, get_table_columns
 from file_operations import create_csv_files, iterate_folder
 import helper
@@ -24,7 +24,9 @@ def main():
     columns = {}
     for file in iterate_folder(accessdb_folderpath, file_extension=".accdb"):
         logger.info("File found: " + file)
-        year = file.split('\\')[-1].split('.')[0][-6:-2]      
+        year = file.split('\\')[-1].split('.')[0][-6:-2]
+        if create_postgres_tables:
+            extract_meta_data(file, year)      
         # key = survey name_table name, value = list of columns
         columns = get_table_columns(file, year, columns)
     logger.info("Dictionary of columns for survey_table created")

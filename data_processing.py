@@ -100,3 +100,24 @@ def extract_and_save_data(db_file, year, create_csv, create_postgres_tables, out
     finally:
         engine.dispose()
         logger.info(f"Connection closed after extracting data for {year}")
+
+def extract_meta_data(db_file, year):
+    engine = db.connect_to_database(db_file)
+    if engine is None:
+        return
+    try:
+        postgres_engine = db.connect_to_ipeds_database()
+        #connect to access db and fetch data from tables - vartable, valuesets, tables
+        meta_data = [f'vartable', f'valuesets', f'tables']
+        for table in meta_data:
+            with engine.connect() as connection:
+                query = f"SELECT * FROM {table}{year[-2:]}"
+                df = pd.read_sql(query, connection)
+                df.insert(0, 'Year', year)
+                df.to_sql(table, postgres_engine, if_exists='append', index=False)
+                logger.info(f"Data written to postgres table {table} for {year}")
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+    finally:
+        engine.dispose()
+        logger.info(f"Connection closed after extracting meta data for {year}")
