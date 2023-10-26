@@ -1,8 +1,8 @@
-greenlet==2.0.2
-numpy==1.26.0
+greenlet==3.0.0
+numpy==1.26.1
 pandas==2.1.0
 psycopg2==2.9.9
-pyodbc==4.0.39
+pyodbc==5.0.1
 python-dateutil==2.8.2
 pytz==2023.3.post1
 pywin32==306
