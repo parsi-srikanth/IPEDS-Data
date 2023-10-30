@@ -1,5 +1,5 @@
 from data_processing import extract_and_save_data, extract_meta_data
-from database_operations import get_counts, get_table_columns
+from database_operations import get_counts, get_table_columns, create_cips
 from file_operations import create_csv_files, iterate_folder
 import helper
 import pandas as pd
@@ -12,6 +12,7 @@ def main():
     logger = logging.getLogger(__name__)
     accessdb_folderpath = config['Access DBs']['folderpath']
     csv_folderpath = config['Access DBs']['PathToSaveCSV']
+    cips_file_path = config['Access DBs']['CIPSFolderPath']
     create_csv = True if config['Output']['CreateCsv'] == 'True' else False
     create_postgres_tables = True if config['Output']['CreatePostgresTable'] == 'True' else False
 
@@ -49,6 +50,12 @@ def main():
         extract_and_save_data(file, year, create_csv, create_postgres_tables, csv_folderpath, tables_to_merge, columnList = columns)
     logger.info("Data extracted and saved")  
 
+    for file in iterate_folder(cips_file_path, file_extension=".xlsx"):
+        logger.info("File found: " + file)
+        year = file.split('\\')[-1].split('.')[0][-4:]
+        create_cips(file, year)
+    logger.info("CIPS Data extracted and saved")
+    
     counts = get_counts(columns)
     counts.to_csv('counts.csv', index=False)
     logger.info("Counts saved to CSV file")

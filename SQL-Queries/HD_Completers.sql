@@ -1,0 +1,73 @@
+SELECT HD."UNITID", HD."Year", HD."INSTNM", HD."IALIAS", 
+       HD."ADDR", HD."CITY", HD."STABBR", HD."STABBR_label", HD."ZIP", HD."LATITUDE",
+       HD."LONGITUD", HD."ICLEVEL", HD."ICLEVEL_label", HD."HLOFFER", HD."HLOFFER_label", HD."UGOFFER",
+       HD."UGOFFER_label", HD."GROFFER", HD."GROFFER_label", HD."HDEGOFR1", HD."HDEGOFR1_label", 
+       HD."OPENPUBL", HD."OPENPUBL_label", HD."INSTCAT", HD."INSTCAT_label",
+       HD."COUNTYCD", HD."COUNTYCD_label", HD."COUNTYNM", HD."CNGDSTCD", HD."CNGDSTCD_label", HD."INSTSIZE", 
+       HD."INSTSIZE_label", HD."SECTOR", HD."SECTOR_label", HD."CONTROL", HD."CONTROL_label",
+       C_A."AWLEVEL", C_A."CIPCODE", C_A."CTOTALT", C_A."CTOTALM", C_A."CTOTALW",
+       C_A."CAIANT", C_A."CASIAT", C_A."CBKAAT", C_A."CHISPT", C_A."CNHPIT", C_A."CWHITT", C_A."C2MORT", C_A."CNRALT",
+       C_A."CUNKNT"
+FROM public."InstitutionalCharacteristics_HD" as HD
+INNER JOIN public."Completions_C_A" as C_A
+ON HD."UNITID" = C_A."UNITID" AND HD."Year" = C_A."Year"
+WHERE (length(C_A."CIPCODE") >= 6) AND (C_A."MAJORNUM" = 1);
+
+-- SELECT
+--     HD."UNITID",
+--     HD."Year",
+--     HD."INSTNM",
+--     HD."IALIAS",
+--     HD."ADDR",
+--     HD."CITY",
+--     HD."STABBR",
+--     HD."STABBR_label",
+--     HD."ZIP",
+--     HD."LATITUDE",
+--     HD."LONGITUD",
+--     HD."ICLEVEL",
+--     HD."ICLEVEL_label",
+--     HD."HLOFFER",
+--     HD."HLOFFER_label",
+--     HD."UGOFFER",
+--     HD."UGOFFER_label",
+--     HD."GROFFER",
+--     HD."GROFFER_label",
+--     HD."HDEGOFR1",
+--     HD."HDEGOFR1_label",
+--     HD."OPENPUBL",
+--     HD."OPENPUBL_label",
+--     HD."INSTCAT",
+--     HD."INSTCAT_label",
+--     HD."COUNTYCD",
+--     HD."COUNTYCD_label",
+--     HD."COUNTYNM",
+--     HD."CNGDSTCD",
+--     HD."CNGDSTCD_label",
+--     HD."INSTSIZE",
+--     HD."INSTSIZE_label",
+--     HD."SECTOR",
+--     HD."SECTOR_label",
+--     HD."CONTROL",
+--     HD."CONTROL_label",
+--     C_A."AWLEVEL",
+--     C_A."AWLEVEL_label",
+--     C_A."CIPCODE",
+--     COALESCE(CIPS_2020."CIPTITLE", CIPS_2010."CIPTITLE") AS "CIPTITLE",
+--     C_A."CTOTALT",
+--     C_A."CTOTALM",
+--     C_A."CTOTALW",
+--     C_A."CAIANT",
+--     C_A."CASIAT",
+--     C_A."CBKAAT",
+--     C_A."CHISPT",
+--     C_A."CNHPIT",
+--     C_A."CWHITT",
+--     C_A."C2MORT",
+--     C_A."CNRALT",
+--     C_A."CUNKNT"
+-- FROM public."InstitutionalCharacteristics_HD" AS HD
+-- INNER JOIN public."Completions_C_A" AS C_A ON HD."UNITID" = C_A."UNITID" AND HD."Year" = C_A."Year"
+-- LEFT JOIN public."CIPS_2020" AS CIPS_2020 ON C_A."CIPCODE" = CIPS_2020."CIPCODE"
+-- LEFT JOIN public."CIPS_2010" AS CIPS_2010 ON C_A."CIPCODE" = CIPS_2010."CIPCODE"
+-- WHERE LENGTH(C_A."CIPCODE") >= 6 AND C_A."MAJORNUM" = 1;

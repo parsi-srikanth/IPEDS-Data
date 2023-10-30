@@ -116,3 +116,20 @@ def get_counts(columns={}):
     finally:
         engine.dispose()
         logger.info(f"Connection closed after getting table column counts")
+
+def create_cips(cips_file_path, year):
+    engine = connect_to_ipeds_database()
+    if engine is None:
+        return {}
+    try:
+        connection = engine.connect()
+        logger.info(f"reading from excel {year}")
+        df = pd.read_excel(cips_file_path)
+        logger.info(f"writing to sql for {year}")
+        df.to_sql('CIPS_'+year, engine, if_exists='replace', index=False)
+        logger.info(f"CIPS for {year} is written to db")
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+    finally:
+        engine.dispose()
+        logger.info(f"Connection closed after writing cips data")

@@ -9,6 +9,7 @@ config_file.add_section("Access DBs")
 # ADD SETTINGS TO SECTION
 config_file.set("Access DBs", "FolderPath", r"C:\Users\C00541311\Desktop\AccessDBs")
 config_file.set("Access DBs", "PathToSaveCSV", r"C:\Users\C00541311\Desktop\AccessDBs\CSVs\<survey-name>")
+config_file.set("Access DBs", "CIPSFolderPath", r"C:\Users\C00541311\Desktop\AccessDBs\CIP_Codes")
 # Note: You should replace <survey-name> with the actual survey name or use a placeholder if needed.
 
 # ADD NEW SECTION AND SETTINGS
