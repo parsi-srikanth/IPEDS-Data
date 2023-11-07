@@ -124,9 +124,9 @@ def create_cips(cips_file_path, year):
     try:
         connection = engine.connect()
         logger.info(f"reading from excel {year}")
-        df = pd.read_excel(cips_file_path)
+        df = pd.read_excel(cips_file_path,dtype={'CIPCode':str})
         logger.info(f"writing to sql for {year}")
-        df.to_sql('CIPS_'+year, engine, if_exists='replace', index=False)
+        df.to_sql('CIP_'+year, engine, if_exists='replace', index=False)
         logger.info(f"CIPS for {year} is written to db")
     except Exception as e:
         logger.error(f"An error occurred: {e}")
